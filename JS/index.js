@@ -117,3 +117,16 @@ function displayResults(results, images) {
     getUserLocation();
   });
   
+  // Filtrar los resultados según el texto de la barra de búsqueda
+function handleSearch() {
+    const searchQuery = document.getElementById('search-bar').value.toLowerCase();
+  
+    // Filtrar lugares que coincidan con la búsqueda
+    const filteredResults = allResults.filter((place) =>
+      place.title.toLowerCase().includes(searchQuery)
+    );
+  
+    // Volver a mostrar los resultados filtrados
+    displayResults(filteredResults, allImages);
+  }
+  
