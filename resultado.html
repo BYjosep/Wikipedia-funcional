@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle del Lugar</title>
+    <link rel="stylesheet" href="./css/resultado.css">
+</head>
+<body>
+<div class="container">
+    <!-- Encabezado -->
+    <header class="header">
+        <h1 id="place-title">Cargando...</h1>
+    </header>
+
+    <!-- Contenido principal -->
+    <main class="main-content">
+        <!-- Imagen del lugar -->
+        <img id="place-image" src="" alt="Lugar seleccionado" />
+
+        <!-- Distancia -->
+        <p id="place-distance"></p>
+
+        <!-- Resumen del lugar -->
+        <section class="place-description">
+            <h2>Descripción</h2>
+            <p id="place-summary">Cargando información...</p>
+        </section>
+
+        <!-- Ubicación en Google Maps -->
+        <section class="place-location">
+            <h2>Ubicación</h2>
+            <iframe
+                    id="google-maps-iframe"
+                    src=""
+                    frameborder="0"
+                    style="width: 100%; height: 300px; border-radius: 8px;"
+                    allowfullscreen>
+            </iframe>
+            <a id="google-maps-link" href="#" target="_blank" class="maps-link">Abrir en Google Maps</a>
+        </section>
+    </main>
+
+    <!-- Botón de retorno -->
+    <footer>
+        <a href="./index.html" class="back-button">Volver al inicio</a>
+    </footer>
+</div>
+
+<script src="./JS/resultado.js"></script>
+</body>
+</html>

@@ -1,3 +1,4 @@
-# Wikipedia funcional
+# Wikipedia funcional #
 
-Este repositorio esta basado en el repositorio ya creado [WIKIPEDIA](https://github.com/BYjosep/WIKIPEDIA)
+Este repositorio está basado en el repositorio ya creada 
+[WIKIPEDIA](https://github.com/BYjosep/WIKIPEDIA)
