@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     const resultsSection = document.querySelector('.results-section');
     const searchInput = document.getElementById('search-input');
@@ -141,6 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         title: place.title,
                         image: imageSrc,
                         distance: formattedDistance,
+                        lat: place.lat, // Coordenadas del lugar
+                        lon: place.lon, // Coordenadas del lugar
                     })
                 );
 
@@ -174,51 +175,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // Obtener ubicación al cargar
     getUserLocation();
 });
-
-
-// Mostrar resultados
-function displayResults(results, images) {
-    resultsSection.innerHTML = ""; // Limpiar resultados previos
-
-    results.forEach((place) => {
-        const resultCard = document.createElement('div');
-        resultCard.classList.add('result-card');
-
-        const imageSrc = images[place.title] || "https://via.placeholder.com/300";
-
-        const formattedDistance =
-            place.dist !== null
-                ? place.dist >= 1000
-                    ? `${(place.dist / 1000).toFixed(1)} km`
-                    : `${Math.round(place.dist)} metros`
-                : "Distancia desconocida";
-
-        resultCard.innerHTML = `
-      <img src="${imageSrc}" alt="${place.title}" class="result-image" />
-      <div class="result-info">
-        <p>${place.title}</p>
-        <p><small>A ${formattedDistance}</small></p>
-      </div>
-    `;
-
-        // Agregar evento de clic para redirigir
-        resultCard.addEventListener("click", () => {
-            // Guardar información del resultado en localStorage
-            localStorage.setItem(
-                "selectedPlace",
-                JSON.stringify({
-                    title: place.title,
-                    image: imageSrc,
-                    distance: formattedDistance,
-                    lat: place.lat, // Coordenadas del lugar
-                    lon: place.lon, // Coordenadas del lugar
-                })
-            );
-
-            // Redirigir a la página de resultados
-            window.location.href = "./resultado.html";
-        });
-
-        resultsSection.appendChild(resultCard);
-    });
-}
