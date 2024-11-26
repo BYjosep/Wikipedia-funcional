@@ -3,17 +3,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('search-input');
     const searchBtn = document.getElementById('search-btn');
 
+    let userCoords = null; // Coordenadas del usuario
     let allResults = []; // Almacena todos los resultados obtenidos
     let allImages = {}; // Almacena las imágenes de los resultados
+
+    // Palabras clave para excluir resultados no deseados
+    const exclusionKeywords = [
+        "ciudad",
+        "pueblo",
+        "provincia",
+        "país",
+        "capital",
+        "municipio",
+    ];
 
     // Obtener ubicación del usuario al cargar la página
     function getUserLocation() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    const { latitude, longitude } = position.coords;
-                    console.log(`Latitud: ${latitude}, Longitud: ${longitude}`);
-                    fetchWikipediaDataByLocation(latitude, longitude);
+                    userCoords = {
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude,
+                    };
+                    fetchWikipediaDataByLocation(userCoords.lat, userCoords.lon);
                 },
                 (error) => {
                     console.error("No se pudo acceder a la ubicación:", error.message);
@@ -38,9 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.query && data.query.geosearch.length > 0) {
                 const titles = data.query.geosearch.map((place) => place.title);
 
-                // Ordenar resultados por distancia antes de guardar
-                allResults = data.query.geosearch.sort((a, b) => a.dist - b.dist);
-                fetchArticleImages(titles, allResults);
+                // Obtener detalles de los artículos y filtrar lugares físicos
+                const places = await fetchArticleDetails(titles);
+
+                if (places.length > 0) {
+                    allResults = places;
+                    displayResults(allResults, allImages);
+                } else {
+                    displayError("No se encontraron lugares cercanos con coordenadas.");
+                }
             } else {
                 displayError("No se encontraron resultados cerca de tu ubicación.");
             }
@@ -50,11 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Consultar API de Wikipedia por término de búsqueda
+    // Consultar API de Wikipedia por término de búsqueda y ordenar por distancia
     async function fetchWikipediaDataBySearch(query) {
+        if (!userCoords) {
+            displayError("No se pudo obtener la ubicación para ordenar los resultados.");
+            return;
+        }
+
         const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
             query
-        )}&srlimit=10&format=json&origin=*`;
+        )}&srprop=snippet&srnamespace=0&srlimit=10&format=json&origin=*`;
 
         try {
             const response = await fetch(apiUrl);
@@ -63,15 +87,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.query && data.query.search.length > 0) {
                 const titles = data.query.search.map((result) => result.title);
 
-                // Guardar resultados sin distancia (para búsquedas manuales)
-                allResults = data.query.search.map((result) => ({
-                    title: result.title,
-                    dist: null, // No hay distancia para búsquedas manuales
-                }));
+                // Obtener detalles de los artículos y filtrar lugares físicos
+                const places = await fetchArticleDetails(titles);
 
-                // Ordenar alfabéticamente los resultados
-                allResults.sort((a, b) => a.title.localeCompare(b.title));
-                fetchArticleImages(titles, allResults);
+                if (places.length > 0) {
+                    // Calcular la distancia para cada lugar
+                    places.forEach((place) => {
+                        place.dist = calculateDistance(
+                            userCoords.lat,
+                            userCoords.lon,
+                            place.lat,
+                            place.lon
+                        );
+                    });
+
+                    // Ordenar por distancia
+                    const sortedPlaces = places.sort((a, b) => a.dist - b.dist);
+
+                    allResults = sortedPlaces; // Guardar los resultados ordenados globalmente
+                    displayResults(allResults, allImages); // Mostrar los resultados
+                } else {
+                    displayError("No se encontraron lugares físicos relacionados con tu búsqueda.");
+                }
             } else {
                 displayError("No se encontraron resultados para tu búsqueda.");
             }
@@ -81,29 +118,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Consultar imágenes de los artículos
-    async function fetchArticleImages(titles, results) {
+    // Obtener detalles de los artículos y filtrar lugares físicos
+    async function fetchArticleDetails(titles) {
         const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&titles=${titles
             .map((title) => encodeURIComponent(title))
-            .join("|")}&prop=pageimages&piprop=thumbnail&pithumbsize=300&format=json&origin=*`;
+            .join("|")}&prop=coordinates|pageimages&piprop=thumbnail&pithumbsize=300&format=json&origin=*`;
 
         try {
             const response = await fetch(apiUrl);
             const data = await response.json();
+            const pages = Object.values(data.query.pages);
 
-            const pages = data.query.pages;
-            allImages = Object.values(pages).reduce((acc, page) => {
-                if (page.thumbnail && page.thumbnail.source) {
-                    acc[page.title] = page.thumbnail.source;
-                }
-                return acc;
-            }, {});
+            // Filtrar artículos con coordenadas (lugares físicos) y excluir términos genéricos
+            const filtered = pages
+                .filter((page) => page.coordinates) // Solo lugares con coordenadas
+                .filter(
+                    (page) =>
+                        !exclusionKeywords.some((keyword) =>
+                            page.title.toLowerCase().includes(keyword)
+                        )
+                )
+                .map((page) => ({
+                    title: page.title,
+                    lat: page.coordinates[0].lat,
+                    lon: page.coordinates[0].lon,
+                    image: page.thumbnail ? page.thumbnail.source : null,
+                    dist: null, // Calcularemos después
+                }));
 
-            displayResults(results, allImages);
+            return filtered;
         } catch (error) {
-            console.error("Error al obtener imágenes de los artículos:", error);
-            displayError("Hubo un problema al obtener las imágenes. Inténtalo de nuevo.");
+            console.error("Error al filtrar artículos:", error);
+            return [];
         }
+    }
+
+    // Calcular la distancia entre dos coordenadas usando la fórmula de Haversine
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3; // Radio de la Tierra en metros
+        const toRadians = (angle) => (angle * Math.PI) / 180;
+
+        const φ1 = toRadians(lat1);
+        const φ2 = toRadians(lat2);
+        const Δφ = toRadians(lat2 - lat1);
+        const Δλ = toRadians(lon2 - lon1);
+
+        const a =
+            Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Retorna la distancia en metros
     }
 
     // Mostrar resultados
