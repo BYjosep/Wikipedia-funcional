@@ -7,14 +7,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let allResults = []; // Almacena todos los resultados obtenidos
     let allImages = {}; // Almacena las imágenes de los resultados
 
-    // Palabras clave para excluir resultados no deseados
-    const exclusionKeywords = [
-        "ciudad",
-        "pueblo",
-        "provincia",
-        "país",
-        "capital",
-        "municipio",
+    // Palabras clave aceptadas para resultados específicos (lista blanca)
+    const inclusionKeywords = [
+        "iglesia",
+        "museo",
+        "playa",
+        "parque",
+        "monumento",
+        "plaza",
+        "estatua",
+        "edificio",
+        "templo",
+        "catedral",
+        "teatro",
+        "zoológico",
+        "bosque",
     ];
 
     // Obtener ubicación del usuario al cargar la página
@@ -56,9 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (places.length > 0) {
                     allResults = places;
-                    displayResults(allResults, allImages);
+                    displayResults(allResults);
                 } else {
-                    displayError("No se encontraron lugares cercanos con coordenadas.");
+                    displayError("No se encontraron lugares cercanos que coincidan con tu búsqueda.");
                 }
             } else {
                 displayError("No se encontraron resultados cerca de tu ubicación.");
@@ -105,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sortedPlaces = places.sort((a, b) => a.dist - b.dist);
 
                     allResults = sortedPlaces; // Guardar los resultados ordenados globalmente
-                    displayResults(allResults, allImages); // Mostrar los resultados
+                    displayResults(allResults); // Mostrar los resultados
                 } else {
                     displayError("No se encontraron lugares físicos relacionados con tu búsqueda.");
                 }
@@ -129,14 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const pages = Object.values(data.query.pages);
 
-            // Filtrar artículos con coordenadas (lugares físicos) y excluir términos genéricos
+            // Filtrar artículos con coordenadas y listas de palabras clave
             const filtered = pages
                 .filter((page) => page.coordinates) // Solo lugares con coordenadas
-                .filter(
-                    (page) =>
-                        !exclusionKeywords.some((keyword) =>
-                            page.title.toLowerCase().includes(keyword)
-                        )
+                .filter((page) =>
+                    inclusionKeywords.some((keyword) =>
+                        page.title.toLowerCase().includes(keyword)
+                    )
                 )
                 .map((page) => ({
                     title: page.title,
@@ -172,14 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Mostrar resultados
-    function displayResults(results, images) {
+    function displayResults(results) {
         resultsSection.innerHTML = ""; // Limpiar resultados previos
 
         results.forEach((place) => {
-            const resultCard = document.createElement('div');
-            resultCard.classList.add('result-card');
+            const resultCard = document.createElement("div");
+            resultCard.classList.add("result-card");
 
-            const imageSrc = images[place.title] || "https://via.placeholder.com/300";
+            const imageSrc = place.image || "https://via.placeholder.com/300";
 
             const formattedDistance =
                 place.dist !== null
@@ -205,8 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         title: place.title,
                         image: imageSrc,
                         distance: formattedDistance,
-                        lat: place.lat, // Coordenadas del lugar
-                        lon: place.lon, // Coordenadas del lugar
+                        lat: place.lat,
+                        lon: place.lon,
                     })
                 );
 
