@@ -5,7 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let userCoords = null; // Coordenadas del usuario
     let allResults = []; // Almacena todos los resultados obtenidos
-    let allImages = {}; // Almacena las imágenes de los resultados
+    const minResults = 10; // Mínimo número de resultados deseados
+    const maxAttempts = 3; // Máximo número de intentos para expandir el radio de búsqueda
+    const initialRadius = 10000; // Radio inicial de búsqueda en metros
 
     // Palabras clave aceptadas para resultados específicos (lista blanca)
     const inclusionKeywords = [
@@ -33,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         lat: position.coords.latitude,
                         lon: position.coords.longitude,
                     };
-                    fetchWikipediaDataByLocation(userCoords.lat, userCoords.lon);
+                    fetchNearbyPlaces(userCoords.lat, userCoords.lon, initialRadius);
                 },
                 (error) => {
                     console.error("No se pudo acceder a la ubicación:", error.message);
@@ -45,30 +47,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Consultar API de Wikipedia por ubicación
-    async function fetchWikipediaDataByLocation(lat, lon) {
-        const radius = 10000; // Radio de búsqueda en metros
-        const limit = 10; // Número máximo de resultados
+    // Consultar API de Wikipedia para obtener lugares cercanos con un mínimo de resultados
+    async function fetchNearbyPlaces(lat, lon, radius, attempt = 1) {
+        const limit = 100; // Número máximo de resultados
         const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=${limit}&format=json&origin=*`;
 
         try {
+            console.log(`Intento ${attempt}: Consultando lugares cercanos con radio ${radius}m...`);
             const response = await fetch(apiUrl);
             const data = await response.json();
 
             if (data.query && data.query.geosearch.length > 0) {
                 const titles = data.query.geosearch.map((place) => place.title);
-
-                // Obtener detalles de los artículos y filtrar lugares físicos
                 const places = await fetchArticleDetails(titles);
 
-                if (places.length > 0) {
-                    allResults = places;
-                    displayResults(allResults);
+                // Calcular distancias con Haversine para todos los lugares
+                places.forEach((place) => {
+                    place.dist = calculateDistance(lat, lon, place.lat, place.lon);
+                });
+
+                // Agregar resultados a la lista general
+                allResults = allResults.concat(places);
+
+                // Eliminar duplicados por título
+                allResults = allResults.filter(
+                    (place, index, self) =>
+                        index === self.findIndex((p) => p.title === place.title)
+                );
+
+                // Si ya tenemos el mínimo deseado, mostrar resultados
+                if (allResults.length >= minResults || attempt >= maxAttempts) {
+                    const sortedPlaces = allResults.sort((a, b) => a.dist - b.dist);
+                    displayResults(sortedPlaces);
                 } else {
-                    displayError("No se encontraron lugares cercanos que coincidan con tu búsqueda.");
+                    // Expandir el radio y volver a intentar
+                    const newRadius = radius * 1.5; // Incrementar el radio en un 50%
+                    fetchNearbyPlaces(lat, lon, newRadius, attempt + 1);
                 }
+            } else if (attempt < maxAttempts) {
+                // Expandir el radio si no hay suficientes resultados
+                const newRadius = radius * 1.5;
+                fetchNearbyPlaces(lat, lon, newRadius, attempt + 1);
             } else {
-                displayError("No se encontraron resultados cerca de tu ubicación.");
+                // Mostrar lo que tengamos después de agotar los intentos
+                displayResults(allResults);
             }
         } catch (error) {
             console.error("Error al consultar la API de Wikipedia:", error);
@@ -76,16 +98,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Consultar API de Wikipedia por término de búsqueda y ordenar por distancia
+    // Consultar API de Wikipedia por término de búsqueda
     async function fetchWikipediaDataBySearch(query) {
         if (!userCoords) {
             displayError("No se pudo obtener la ubicación para ordenar los resultados.");
             return;
         }
 
+        const limit = 100; // Número máximo de resultados
         const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
             query
-        )}&srprop=snippet&srnamespace=0&srlimit=10&format=json&origin=*`;
+        )}&srprop=snippet&srnamespace=0&srlimit=${limit}&format=json&origin=*`;
 
         try {
             const response = await fetch(apiUrl);
@@ -93,12 +116,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.query && data.query.search.length > 0) {
                 const titles = data.query.search.map((result) => result.title);
-
-                // Obtener detalles de los artículos y filtrar lugares físicos
                 const places = await fetchArticleDetails(titles);
 
                 if (places.length > 0) {
-                    // Calcular la distancia para cada lugar
+                    // Calcular distancias con Haversine para todos los lugares
                     places.forEach((place) => {
                         place.dist = calculateDistance(
                             userCoords.lat,
@@ -108,13 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
                     });
 
-                    // Ordenar por distancia
+                    // Ordenar por proximidad
                     const sortedPlaces = places.sort((a, b) => a.dist - b.dist);
-
-                    allResults = sortedPlaces; // Guardar los resultados ordenados globalmente
-                    displayResults(allResults); // Mostrar los resultados
+                    allResults = sortedPlaces;
+                    displayResults(allResults);
                 } else {
-                    displayError("No se encontraron lugares físicos relacionados con tu búsqueda.");
+                    displayError("No se encontraron lugares relacionados con tu búsqueda.");
                 }
             } else {
                 displayError("No se encontraron resultados para tu búsqueda.");
@@ -136,8 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const pages = Object.values(data.query.pages);
 
-            // Filtrar artículos con coordenadas y listas de palabras clave
-            const filtered = pages
+            return pages
                 .filter((page) => page.coordinates) // Solo lugares con coordenadas
                 .filter((page) =>
                     inclusionKeywords.some((keyword) =>
@@ -151,8 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     image: page.thumbnail ? page.thumbnail.source : null,
                     dist: null, // Calcularemos después
                 }));
-
-            return filtered;
         } catch (error) {
             console.error("Error al filtrar artículos:", error);
             return [];
@@ -202,9 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-            // Agregar evento de clic para redirigir
             resultCard.addEventListener("click", () => {
-                // Guardar información del resultado en localStorage
                 localStorage.setItem(
                     "selectedPlace",
                     JSON.stringify({
@@ -215,8 +230,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         lon: place.lon,
                     })
                 );
-
-                // Redirigir a la página de resultados
                 window.location.href = "./resultado.html";
             });
 
@@ -239,7 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (query) {
             fetchWikipediaDataBySearch(query);
         } else {
-            alert("Por favor, ingresa un término de búsqueda.");
+            fetchNearbyPlaces(userCoords.lat, userCoords.lon, initialRadius);
         }
     });
 
