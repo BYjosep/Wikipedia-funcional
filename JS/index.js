@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let userCoords = null; // Coordenadas del usuario
     let allResults = []; // Almacena todos los resultados obtenidos
+
+    // Palabras clave para excluir resultados no deseados
     const exclusionKeywords = [
         "ciudad",
         "pueblo",
@@ -35,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Consultar API de Wikipedia para lugares cercanos
+    // Consultar lugares cercanos
     async function fetchNearbyPlaces(lat, lon, radius, attempt = 1) {
         const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}|${lon}&gsradius=${radius}&gslimit=50&format=json&origin=*`;
 
@@ -45,9 +47,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.query && data.query.geosearch.length > 0) {
-                const titles = data.query.geosearch.map((place) => place.title);
+                console.log("Lugares encontrados (sin filtrar):", data.query.geosearch.map((place) => place.title));
 
+                const titles = data.query.geosearch.map((place) => place.title);
                 const places = await fetchArticleDetails(titles);
+
                 places.forEach((place) => {
                     place.dist = calculateDistance(lat, lon, place.lat, place.lon);
                 });
@@ -64,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log("Pocos resultados, ampliando el radio de búsqueda.");
                 fetchNearbyPlaces(lat, lon, radius * 1.5, attempt + 1);
             } else {
+                console.log("No se encontraron resultados suficientes.");
                 displayError("No se encontraron lugares cercanos.");
             }
         } catch (error) {
@@ -72,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Consultar API de Wikipedia por término de búsqueda
+    // Buscar por término específico
     async function fetchWikipediaDataBySearch(query) {
         if (!userCoords) {
             displayError("No se pudo obtener la ubicación para ordenar los resultados.");
@@ -116,19 +121,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const pages = Object.values(data.query.pages);
 
-            return pages
+            console.log("Detalles sin filtrar:", pages.map((page) => page.title));
+
+            const filtered = pages
                 .filter((page) => page.coordinates)
                 .filter((page) =>
                     !exclusionKeywords.some((keyword) =>
                         page.title.toLowerCase().includes(keyword)
                     )
-                )
-                .map((page) => ({
-                    title: page.title,
-                    lat: page.coordinates[0].lat,
-                    lon: page.coordinates[0].lon,
-                    image: page.thumbnail?.source || "https://via.placeholder.com/300",
-                }));
+                );
+
+            console.log("Detalles después de filtrar:", filtered.map((page) => page.title));
+
+            return filtered.map((page) => ({
+                title: page.title,
+                lat: page.coordinates[0].lat,
+                lon: page.coordinates[0].lon,
+                image: page.thumbnail?.source || "https://via.placeholder.com/300",
+            }));
         } catch (error) {
             console.error("Error al obtener detalles de artículos:", error);
             return [];
@@ -191,11 +201,24 @@ document.addEventListener('DOMContentLoaded', () => {
         resultsSection.innerHTML = `<div class="error-message"><p>${message}</p></div>`;
     }
 
-    // Eventos
+    // Eventos de busqueda
     searchBtn.addEventListener("click", () => {
         const query = searchInput.value.trim();
         if (query) fetchWikipediaDataBySearch(query);
     });
+
+    // Manejar evento de borrar búsqueda
+    const clearBtn = document.getElementById("clear-btn");
+    clearBtn.addEventListener("click", () => {
+        searchInput.value = ""; // Limpiar el campo de búsqueda
+        if (userCoords) {
+            // Mostrar resultados iniciales según la ubicación
+            fetchNearbyPlaces(userCoords.lat, userCoords.lon, 10000);
+        } else {
+            displayError("No se pudo restablecer la búsqueda porque no se conoce la ubicación.");
+        }
+    });
+
 
     getUserLocation();
 });

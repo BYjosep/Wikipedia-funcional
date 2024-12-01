@@ -27,11 +27,6 @@ body {
     color: #666;
 }
 
-.user-info h1 {
-    margin: 0;
-    font-size: 1.2rem;
-}
-
 .profile-btn {
     background: none;
     border: none;
@@ -63,16 +58,33 @@ body {
 
 .search-bar button {
     padding: 0.5rem;
-    background-color: #ff5722;
     border: none;
     border-radius: 8px;
-    color: white;
     cursor: pointer;
     font-size: 1rem;
 }
 
-.search-bar button i {
+#search-btn {
+    background-color: #ff5722;
+    color: white;
+}
+
+#search-btn i {
     font-size: 1.2rem;
+}
+
+#clear-btn {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    color: #ff5722;
+}
+
+#clear-btn i {
+    font-size: 1.2rem;
+}
+
+#clear-btn:hover {
+    background-color: #eee;
 }
 
 /* Categorías */

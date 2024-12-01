@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aplicación de Lugares</title>
-    <link href="./css/index.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="./css/index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 <!-- Contenedor principal -->
@@ -23,9 +23,12 @@
     <!-- Barra de búsqueda -->
     <section class="search-section">
         <div class="search-bar">
-            <input id="search-input" placeholder="Buscar lugares..." type="text">
+            <input type="text" id="search-input" placeholder="Buscar lugares...">
             <button id="search-btn">
                 <i class="fa fa-search"></i>
+            </button>
+            <button id="clear-btn">
+                <i class="fa fa-times"></i>
             </button>
         </div>
         <!-- Categorías -->
