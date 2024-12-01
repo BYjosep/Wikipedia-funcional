@@ -6,14 +6,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let userCoords = null; // Coordenadas del usuario
     let allResults = []; // Almacena todos los resultados obtenidos
 
-    // Palabras clave para excluir resultados no deseados
-    const exclusionKeywords = [
-        "ciudad",
-        "pueblo",
-        "provincia",
-        "país",
-        "capital",
-        "municipio",
+    // Palabras clave para incluir resultados deseados
+    const inclusionKeywords = [
+        "montaña",
+        "iglesia",
+        "monumento",
+        "catedral",
+        "museo",
+        "ermita",
+        "parque",
+        "castillo",
+        "natural",
+        "arqueológico",
+        "arqueologico",
+        "histórico",
+        "historico",
+
     ];
 
     // Obtener ubicación del usuario
@@ -59,12 +67,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 allResults = [...new Map([...allResults, ...places].map(item => [item.title, item])).values()];
                 console.log(`Resultados acumulados: ${allResults.length} lugares.`);
 
-                if (allResults.length >= 10 || attempt >= 3) {
+                if (allResults.length >= 100 || attempt >= 1) {
                     displayResults(allResults.sort((a, b) => a.dist - b.dist));
                 } else {
                     fetchNearbyPlaces(lat, lon, radius * 1.5, attempt + 1);
                 }
-            } else if (attempt < 3) {
+            } else if (attempt < 1) {
                 console.log("Pocos resultados, ampliando el radio de búsqueda.");
                 fetchNearbyPlaces(lat, lon, radius * 1.5, attempt + 1);
             } else {
@@ -77,44 +85,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Buscar por término específico
-    async function fetchWikipediaDataBySearch(query) {
-        if (!userCoords) {
-            displayError("No se pudo obtener la ubicación para ordenar los resultados.");
-            return;
-        }
-
-        const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
-            query.toLowerCase()
-        )}&srprop=snippet&srnamespace=0&srlimit=50&format=json&origin=*`;
-
-        try {
-            console.log(`Buscando lugares relacionados con: "${query}".`);
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-
-            if (data.query && data.query.search.length > 0) {
-                const titles = data.query.search.map((result) => result.title);
-
-                const places = await fetchArticleDetails(titles);
-                places.forEach((place) => {
-                    place.dist = calculateDistance(userCoords.lat, userCoords.lon, place.lat, place.lon);
-                });
-
-                const sortedPlaces = places.sort((a, b) => a.dist - b.dist);
-                displayResults(sortedPlaces);
-            } else {
-                displayError("No se encontraron resultados para tu búsqueda.");
-            }
-        } catch (error) {
-            console.error("Error al buscar lugares:", error);
-            displayError("Hubo un problema al buscar. Inténtalo de nuevo.");
-        }
-    }
-
     // Obtener detalles de los artículos
     async function fetchArticleDetails(titles) {
-        const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&titles=${titles.join("|")}&prop=coordinates|pageimages&piprop=thumbnail&pithumbsize=300&format=json&origin=*`;
+        const apiUrl = `https://es.wikipedia.org/w/api.php?action=query&titles=${titles.join("|")}
+        &prop=coordinates|pageimages&piprop=thumbnail&pithumbsize=300&format=json&origin=*`;
 
         try {
             const response = await fetch(apiUrl);
@@ -123,15 +97,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             console.log("Detalles sin filtrar:", pages.map((page) => page.title));
 
+            // Filtrar solo los lugares que contienen palabras clave relevantes
             const filtered = pages
-                .filter((page) => page.coordinates)
-                .filter((page) =>
-                    !exclusionKeywords.some((keyword) =>
-                        page.title.toLowerCase().includes(keyword)
-                    )
-                );
+                .filter((page) => page.coordinates) // Asegurarse de que tienen coordenadas
+                .filter((page) => {
+                    const title = page.title.toLowerCase();
+                    const isIncluded = inclusionKeywords.some((keyword) => {
+                        const regex = new RegExp(`\\b${keyword}\\b`, "i");
+                        return regex.test(title);
+                    });
 
-            console.log("Detalles después de filtrar:", filtered.map((page) => page.title));
+                    if (isIncluded) {
+                        console.log(`Incluyendo: "${page.title}" (coincide con una palabra clave)`);
+                    } else {
+                        console.log(`Excluyendo: "${page.title}" (no coincide con palabras clave)`);
+                    }
+
+                    return isIncluded;
+                });
 
             return filtered.map((page) => ({
                 title: page.title,
@@ -196,16 +179,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
     // Mostrar error
     function displayError(message) {
         resultsSection.innerHTML = `<div class="error-message"><p>${message}</p></div>`;
     }
 
-    // Eventos de busqueda
+    // Eventos de búsqueda
     searchBtn.addEventListener("click", () => {
         const query = searchInput.value.trim();
         if (query) fetchWikipediaDataBySearch(query);
     });
+
+
 
     // Manejar evento de borrar búsqueda
     const clearBtn = document.getElementById("clear-btn");
@@ -218,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
             displayError("No se pudo restablecer la búsqueda porque no se conoce la ubicación.");
         }
     });
-
 
     getUserLocation();
 });
