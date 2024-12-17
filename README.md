@@ -1,6 +1,6 @@
 # Wikipedia funcional #
 
-## Este es el proyecto esta basado en el repositorio [Wikipedia](https://github.com/BYjosep/WIKIPEDIA) ##
+Este es el proyecto esta basado en el repositorio [Wikipedia](https://github.com/BYjosep/WIKIPEDIA)
 
 ## Porque se a usado las apis que hay en el proyecto ##
 
